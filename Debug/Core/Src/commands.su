@@ -1,0 +1,15 @@
+commands.c:11:15:check_command	24	static
+commands.c:59:6:proc_inv_cmd	16	static
+commands.c:64:6:proc_cs_cmd	16	static
+commands.c:96:6:proc_en_cmd	16	static
+commands.c:147:6:proc_un_cmd	16	static
+commands.c:258:6:proc_vr_cmd	16	static
+commands.c:297:6:proc_inc_cmd	16	static
+commands.c:344:6:proc_dec_cmd	16	static
+commands.c:390:6:proc_hw_cmd	16	static
+commands.c:414:6:proc_fsw_cmd	16	static
+commands.c:434:6:proc_sw_cmd	16	static
+commands.c:458:6:proc_stw_cmd	16	static
+commands.c:474:6:proc_kp_cmd	16	static
+commands.c:492:7:get_speed	4	static
+commands.c:497:6:get_mode_speed	4	static
