@@ -8,13 +8,14 @@ float speed_rpm = 0.0;
 
 bool aut = true;
 float sum_e_bkp = 0.0, sum_e = 0.0, e = 0.0, e_ant = 0.0;
-int y = 0, yr = 1, y_ant = 0;
+float y = 0, yr = 1, y_ant = 0;
 int Kp = 0, Kp_h = 0, Kd = 0, Kd_h = 0, Ki = 0, Ki_h = 0;
 float u = 0.0, u_d = 0.0, u_d_ant = 0.0;
 int pos_m;
 int i = 0;
 
-float y_arr[20] = {0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0};
+float y_arr_sq[20] = {0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0};
+float y_arr_tr[20] = {1, 1.2, 1.4, 1.6, 1.8, 2, 1.8, 1.6, 1.4, 1.2, 1, 0.8, 0.6, 0.4, 0.2, 0, 0.2, 0.4, 0.6, 0.8};
 
 struct sp_config_t sp_config = {1, "s"};
 
@@ -588,7 +589,7 @@ void update_pos(int dir)
 
 void ISR_PID()
 {
-	y = y_arr[i++];
+	y = y_arr_sq[i++];
 	i %= 20;
 	//y = pos_m;
 	e = yr - y;
@@ -616,8 +617,8 @@ void ISR_PID()
 
 		TIM2->CCR4 = u/6*100;
 
-		char message[16];
-		itoa(u, message, 10);
+		char message[32];
+		sprintf(message, "%f;%f;", y, u);
 		send_UART(message);
 	}
 	else
