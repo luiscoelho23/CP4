@@ -9,9 +9,9 @@ float speed_rpm = 0.0;
 bool aut = true;
 float sum_e_bkp = 0.0, sum_e = 0.0, e = 0.0, e_ant = 0.0;
 float y = 0, yr = 1, y_ant = 0;
-int Kp = 0, Kp_h = 0, Kd = 0, Kd_h = 0, Ki = 0, Ki_h = 0;
+float Kp = 0, Kp_h = 0, Kd = 0, Kd_h = 0, Ki = 0, Ki_h = 0;
 float u = 0.0, u_d = 0.0, u_d_ant = 0.0;
-int pos_m;
+float pos_m;
 int i = 0;
 
 float y_arr_sq[20] = {0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0};
@@ -618,7 +618,7 @@ void ISR_PID()
 		TIM2->CCR4 = u/6*100;
 
 		char message[32];
-		sprintf(message, "%f;%f;", y, u);
+		sprintf(message, "%.2f;%.2f;", y, u);
 		send_UART(message);
 	}
 	else
