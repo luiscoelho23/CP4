@@ -2,11 +2,18 @@
 
 #define RECOVERY_TIME_MS 10
 
-struct sp_config_t sp_config = {1, 1, "s"};
-
-bool mode_speed = false, enable = false, direction = false;
+bool mode_speed = false, direction = false, direction_m = false;
 unsigned int duty_cycle = 0, mul_pwm = 1;
-float speed_rpm = 0;
+float speed_rpm = 0.0;
+
+bool aut = false;
+float sum_e_bkp = 0.0, sum_e = 0.0, e = 0.0, e_ant = 0.0;
+int y = 0, yr = 0, y_ant = 0;
+int Kp = 0, Kp_h = 0, Kd = 0, Kd_h = 0, Ki = 0, Ki_h = 0;
+float u = 0.0, u_d = 0.0, u_d_ant = 0.0;
+int pos_m;
+
+struct sp_config_t sp_config = {1, "s"};
 
 unsigned char check_command(char* message)
 {
@@ -53,7 +60,9 @@ void (*exec_command[])(char* message) = {
 		proc_fsw_cmd,
 		proc_sw_cmd,
 		proc_stw_cmd,
-		proc_kp_cmd
+		proc_kp_cmd,
+		proc_kd_cmd,
+		proc_ki_cmd
 };
 
 void proc_inv_cmd(char* message)
@@ -95,7 +104,6 @@ void proc_cs_cmd(char* message)
 
 void proc_en_cmd(char* message)
 {
-	/*
 	int val;
 
 	if(sscanf((char*) message, "EN %d", &val) == 1)
@@ -104,35 +112,21 @@ void proc_en_cmd(char* message)
 		{
 			if(val)
 			{
-				send_UART("System enabled with success.");
-				enable = true;
+				MY_TIM3_Init(sp_config);
 
-				if(mode_speed)
-				{
-					set_units("rads");
-					sp_config.sp_limit = 0;
-					MX_TIM3_Init1(sp_config);
-					HAL_TIM_Base_Start_IT(&htim3);
-					HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-					HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-				}
-				else
-				{
-					HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-				}
+				HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+				HAL_TIM_Base_Start_IT(&htim3);
+				HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
+				send_UART("System enabled with success.");
 			}
 			else
 			{
-				// DISABLE ALL
-				HAL_TIM_Base_Stop_IT(&htim3);
-				HAL_TIM_Base_Stop_IT(&htim4);
-				HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-				reset_pulses();
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
-				HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, 0);
 				HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
+				HAL_TIM_Base_Stop_IT(&htim3);
+				HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+
 				send_UART("System disabled with success.");
-				enable = false;
 			}
 		}
 		else
@@ -140,7 +134,6 @@ void proc_en_cmd(char* message)
 	}
 	else
 		send_UART("Invalid Enable instruction syntax.");
-	*/
 }
 
 
@@ -389,26 +382,22 @@ void proc_dec_cmd(char* message)
 
 void proc_hw_cmd(char* message)
 {
-	/*
 	unsigned int unit;
 	char timeunit[2];
 
 	if(sscanf((char*)message, "HW %s %d", timeunit, &unit) == 2)
+	{
+		if(strcmp(timeunit, "ms") == 0 || strcmp(timeunit, "s") == 0 || strcmp(timeunit, "us") == 0)
 		{
-			if(strcmp(timeunit,"ms") == 0 || strcmp(timeunit,"s") == 0 || strcmp(timeunit,"us") == 0)
-			{
-
-
-				strcpy(sp_config.timeunit,timeunit);
-				sp_config.unit = unit;
-				send_UART("Sampling timeunit and units changed with success.");
-			}
-			else
-				send_UART("Invalid Sample Period instruction argument values.");
+			strcpy(sp_config.timeunit, timeunit);
+			sp_config.unit = unit;
+			send_UART("Sampling timeunit and units changed with success.");
 		}
 		else
-			send_UART("Invalid Sample Period instruction syntax.");
-	*/
+			send_UART("Invalid Sample Period instruction argument values.");
+	}
+	else
+		send_UART("Invalid Sample Period instruction syntax.");
 }
 
 void proc_fsw_cmd(char* message)
@@ -473,22 +462,57 @@ void proc_stw_cmd(char* message)
 
 void proc_kp_cmd(char* message)
 {
-	/*
-	unsigned int kp = 0;
-	if(sscanf((char*)message, "KP %d", &kp) == 1)
+	int signval;
+
+	if(sscanf((char*) message, "KP %d", &signval) == 1)
 	{
-		if(kp <= 200 && kp >= 0)
+		if(signval >= -200 && signval <= 200)
 		{
-			set_kp(kp);
+			Kp = signval;
 		}
 		else
-			send_UART("Invalid Gain.");
+			send_UART("Invalid KP value.");
 	}
 	else
 		send_UART("Invalid KP instruction syntax.");
-	*/
 }
 
+void proc_kd_cmd(char* message)
+{
+	int signval;
+
+	if(sscanf((char*) message, "KD %d", &signval) == 1)
+	{
+		if(signval >= -200 && signval <= 200)
+		{
+			Kd = signval;
+		}
+		else
+			send_UART("Invalid KD value.");
+	}
+	else
+		send_UART("Invalid KD instruction syntax.");
+}
+
+void proc_ki_cmd(char* message)
+{
+	int signval;
+
+	if(sscanf((char*) message, "KI %d", &signval) == 1)
+	{
+		if(signval >= -200 && signval <= 200)
+		{
+			Ki = signval;
+		}
+		else
+			send_UART("Invalid KI value.");
+	}
+	else
+		send_UART("Invalid KI instruction syntax.");
+}
+
+
+/*
 float get_speed(void)
 {
 	return speed_rpm * 0.10472;
@@ -497,6 +521,51 @@ float get_speed(void)
 bool get_mode_speed()
 {
 	return mode_speed;
+}
+*/
+
+
+void update_pos(int dir)
+{
+	if(dir)
+		pos_m += POS_UNIT;
+	else
+		pos_m -= POS_UNIT;
+}
+
+void ISR_PID()
+{
+	y = pos_m;
+	e = yr - y;
+
+	if(aut)
+	{
+		sum_e_bkp = sum_e;
+		sum_e = sum_e + e_ant;
+		u_d = Kd_h * (y - y_ant) + a * u_d_ant;
+		u = Kp_h * e + Ki_h * sum_e - u_d;
+		e_ant = e;
+		y_ant = y;
+		u_d_ant = u_d;
+
+		if (u > U_SAT_MAX)
+		{
+			u = U_SAT_MAX;
+			sum_e = sum_e_bkp;
+		}
+		else if(u < U_SAT_MIN)
+		{
+			u = U_SAT_MIN;
+			sum_e = sum_e_bkp;
+		}
+
+		TIM2->CCR4 = u/6*100;
+	}
+	else
+	{
+		e_ant = e;
+		y_ant = y;
+	}
 }
 
 /* USER CODE END 4 */
