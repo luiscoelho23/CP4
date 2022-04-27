@@ -263,6 +263,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 	if(htim == &htim3)
 	{
 		ISR_PID();
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 	}
 }
 

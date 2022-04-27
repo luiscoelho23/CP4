@@ -27,10 +27,9 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "commands.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "commands.h"
 /* USER CODE END Includes */
 
 extern TIM_HandleTypeDef htim2;

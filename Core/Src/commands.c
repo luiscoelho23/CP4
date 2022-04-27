@@ -6,12 +6,15 @@ bool mode_speed = false, direction = false, direction_m = false;
 unsigned int duty_cycle = 0, mul_pwm = 1;
 float speed_rpm = 0.0;
 
-bool aut = false;
+bool aut = true;
 float sum_e_bkp = 0.0, sum_e = 0.0, e = 0.0, e_ant = 0.0;
-int y = 0, yr = 0, y_ant = 0;
+int y = 0, yr = 1, y_ant = 0;
 int Kp = 0, Kp_h = 0, Kd = 0, Kd_h = 0, Ki = 0, Ki_h = 0;
 float u = 0.0, u_d = 0.0, u_d_ant = 0.0;
 int pos_m;
+int i = 0;
+
+float y_arr[20] = {0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0};
 
 struct sp_config_t sp_config = {1, "s"};
 
@@ -25,6 +28,12 @@ unsigned char check_command(char* message)
 		cmd = FSW;
     else if((!strncmp((char*) message, "KP", 2)))
         cmd = KP;
+    else if((!strncmp((char*) message, "KD", 2)))
+		cmd = KD;
+    else if((!strncmp((char*) message, "KI", 2)))
+		cmd = KI;
+    else if((!strncmp((char*) message, "PR", 2)))
+		cmd = PR;
     else if((!strncmp((char*) message, "UN", 2)))
         cmd = UN;
     else if((!strncmp((char*) message, "EN", 2)))
@@ -60,15 +69,18 @@ void (*exec_command[])(char* message) = {
 		proc_fsw_cmd,
 		proc_sw_cmd,
 		proc_stw_cmd,
+		proc_pr_cmd,
 		proc_kp_cmd,
 		proc_kd_cmd,
 		proc_ki_cmd
 };
 
+
 void proc_inv_cmd(char* message)
 {
 	send_UART("Invalid instruction. Type '?' for Help.");
 }
+
 
 void proc_cs_cmd(char* message)
 {
@@ -113,6 +125,7 @@ void proc_en_cmd(char* message)
 			if(val)
 			{
 				MY_TIM3_Init(sp_config);
+				set_Kh_values();
 
 				HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 				HAL_TIM_Base_Start_IT(&htim3);
@@ -387,7 +400,7 @@ void proc_hw_cmd(char* message)
 
 	if(sscanf((char*)message, "HW %s %d", timeunit, &unit) == 2)
 	{
-		if(strcmp(timeunit, "ms") == 0 || strcmp(timeunit, "s") == 0 || strcmp(timeunit, "us") == 0)
+		if(!strcmp(timeunit, "ms") || !strcmp(timeunit, "s") || !strcmp(timeunit, "us"))
 		{
 			strcpy(sp_config.timeunit, timeunit);
 			sp_config.unit = unit;
@@ -459,19 +472,37 @@ void proc_stw_cmd(char* message)
 		send_UART("Invalid Stop Sampling instruction syntax.");
 	*/
 }
+void proc_pr_cmd(char* message)
+{
+	float signval;
+
+	if(sscanf((char*) message, "PR %f", &signval) == 1)
+	{
+		if(signval >= -720 && signval <= 720)
+		{
+			yr = signval;
+			send_UART("Desired position changed with success.");
+		}
+		else
+			send_UART("Invalid desired position value.");
+	}
+	else
+		send_UART("Invalid PR instruction syntax.");
+}
 
 void proc_kp_cmd(char* message)
 {
-	int signval;
+	float signval;
 
-	if(sscanf((char*) message, "KP %d", &signval) == 1)
+	if(sscanf((char*) message, "KP %f", &signval) == 1)
 	{
 		if(signval >= -200 && signval <= 200)
 		{
 			Kp = signval;
+			send_UART("Kp value changed with success.");
 		}
 		else
-			send_UART("Invalid KP value.");
+			send_UART("Invalid Kp value.");
 	}
 	else
 		send_UART("Invalid KP instruction syntax.");
@@ -479,16 +510,17 @@ void proc_kp_cmd(char* message)
 
 void proc_kd_cmd(char* message)
 {
-	int signval;
+	float signval;
 
-	if(sscanf((char*) message, "KD %d", &signval) == 1)
+	if(sscanf((char*) message, "KD %f", &signval) == 1)
 	{
 		if(signval >= -200 && signval <= 200)
 		{
 			Kd = signval;
+			send_UART("Kd value changed with success.");
 		}
 		else
-			send_UART("Invalid KD value.");
+			send_UART("Invalid Kd value.");
 	}
 	else
 		send_UART("Invalid KD instruction syntax.");
@@ -496,16 +528,17 @@ void proc_kd_cmd(char* message)
 
 void proc_ki_cmd(char* message)
 {
-	int signval;
+	float signval;
 
-	if(sscanf((char*) message, "KI %d", &signval) == 1)
+	if(sscanf((char*) message, "KI %f", &signval) == 1)
 	{
 		if(signval >= -200 && signval <= 200)
 		{
 			Ki = signval;
+			send_UART("Ki value changed with success.");
 		}
 		else
-			send_UART("Invalid KI value.");
+			send_UART("Invalid Ki value.");
 	}
 	else
 		send_UART("Invalid KI instruction syntax.");
@@ -524,6 +557,26 @@ bool get_mode_speed()
 }
 */
 
+void set_Kh_values(void)
+{
+	Kp_h = Kp;
+
+	if(!strcmp(sp_config.timeunit, "us"))
+	{
+		Kd_h = Kd * (1 - a) / (0.000001 * sp_config.unit);
+		Ki_h = Ki * 0.000001 * sp_config.unit;
+	}
+	else if(!strcmp(sp_config.timeunit, "ms"))
+	{
+		Kd_h = Kd * (1 - a) / (0.001 * sp_config.unit);
+		Ki_h = Ki * (0.001 * sp_config.unit);
+	}
+	else if(!strcmp(sp_config.timeunit, "s"))
+	{
+		Kd_h = Kd * (1 - a) / sp_config.unit;
+		Ki_h = Ki * sp_config.unit;
+	}
+}
 
 void update_pos(int dir)
 {
@@ -535,7 +588,9 @@ void update_pos(int dir)
 
 void ISR_PID()
 {
-	y = pos_m;
+	y = y_arr[i++];
+	i %= 20;
+	//y = pos_m;
 	e = yr - y;
 
 	if(aut)
@@ -560,6 +615,10 @@ void ISR_PID()
 		}
 
 		TIM2->CCR4 = u/6*100;
+
+		char message[16];
+		itoa(u, message, 10);
+		send_UART(message);
 	}
 	else
 	{
